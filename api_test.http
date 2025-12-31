@@ -1,0 +1,57 @@
+### Register User
+POST http://localhost:8000/users/register
+Content-Type: application/json
+
+{
+  "username": "driver1",
+  "password": "securepassword",
+  "full_name": "Nguyen Van A",
+  "phone_number": "0901234567"
+}
+
+### Login
+POST http://localhost:8000/users/token
+Content-Type: application/x-www-form-urlencoded
+
+username=driver1&password=securepassword
+
+> {% client.global.set("auth_token", response.body.access_token); %}
+
+### Get Current User
+GET http://localhost:8000/users/me
+Authorization: Bearer {{auth_token}}
+
+### Create Emergency Contact
+POST http://localhost:8000/contacts/
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+  "name": " Vo Van B",
+  "phone_number": "0909999999"
+}
+
+### Get Contacts
+GET http://localhost:8000/contacts/
+Authorization: Bearer {{auth_token}}
+
+### Start Trip
+POST http://localhost:8000/trips/start
+Authorization: Bearer {{auth_token}}
+
+> {% client.global.set("trip_id", response.body.trip_id); %}
+
+### 6. Send Detection Log (Auto Trip ID)
+POST {{base_url}}/trips/detections
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+  "event_type": "drowsy",
+  "confidence": 0.88,
+  "gps_location": "10.762622, 106.660172"
+}
+
+### 7. End Trip
+POST http://localhost:8000/trips/end
+Authorization: Bearer {{auth_token}}
