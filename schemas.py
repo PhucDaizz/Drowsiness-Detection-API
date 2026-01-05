@@ -5,7 +5,7 @@ from enum import Enum
 
 # --- User Schemas ---
 class UserBase(BaseModel):
-    username: str
+    email: str
     full_name: str
     phone_number: str
     avatar_url: Optional[str] = None
@@ -92,13 +92,28 @@ class Token(BaseModel):
     token_type: str
 
 class TokenData(BaseModel):
-    username: Optional[str] = None
+    email: Optional[str] = None
 
 # --- Statistics Schemas ---
 class TripWithLogs(TripResponse):
     logs: List[DetectionLogResponse] = []
     total_detections: int = 0
     duration_minutes: Optional[int] = None
+
+class StatsPeriod(str, Enum):
+    TODAY = "TODAY"
+    THIS_WEEK = "THIS_WEEK"
+    THIS_MONTH = "THIS_MONTH"
+    THIS_YEAR = "THIS_YEAR"
+
+class DrivingStatsResponse(BaseModel):
+    today_hours: float
+    week_hours: float
+    month_hours: float
+    year_hours: float
+
+class CalendarCheckinResponse(BaseModel):
+    active_days: List[datetime] # List of dates where driving occurred
 
 class TripSummary(TripResponse):
     total_detections: int = 0

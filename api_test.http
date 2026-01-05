@@ -3,7 +3,7 @@ POST http://localhost:8000/users/register
 Content-Type: application/json
 
 {
-  "username": "driver1",
+  "email": "driver1@example.com",
   "password": "securepassword",
   "full_name": "Nguyen Van A",
   "phone_number": "0901234567"
@@ -13,7 +13,7 @@ Content-Type: application/json
 POST http://localhost:8000/users/token
 Content-Type: application/x-www-form-urlencoded
 
-username=driver1&password=securepassword
+username=driver1@example.com&password=securepassword
 
 > {% client.global.set("auth_token", response.body.access_token); %}
 
@@ -55,3 +55,42 @@ Authorization: Bearer {{auth_token}}
 ### 7. End Trip
 POST http://localhost:8000/trips/end
 Authorization: Bearer {{auth_token}}
+
+### 8. Statistics - Summary (Overview)
+GET {{base_url}}/statistics/summary
+Authorization: Bearer {{auth_token}}
+
+### 8b. Statistics - Summary (Filtered)
+GET {{base_url}}/statistics/summary?period=TODAY
+Authorization: Bearer {{auth_token}}
+
+### 9. Statistics - Driving Durations
+GET http://localhost:8000/statistics/durations
+Authorization: Bearer {{auth_token}}
+
+### 10. Statistics - Trips (Filtered by Period)
+# Modes: TODAY, THIS_WEEK, THIS_MONTH, THIS_YEAR
+GET http://localhost:8000/statistics/trips?period=TODAY
+Authorization: Bearer {{auth_token}}
+
+### 11. Statistics - Calendar Check-in
+GET http://localhost:8000/statistics/calendar?month=12&year=2025
+Authorization: Bearer {{auth_token}}
+
+### 12. Forgot Password
+POST http://localhost:8000/users/forgot-password
+Content-Type: application/json
+
+{
+    "email": "driver1@example.com"
+}
+
+### 13. Reset Password
+POST http://localhost:8000/users/reset-password
+Content-Type: application/json
+
+{
+    "email": "driver1@example.com",
+    "new_password": "newsecurepassword",
+    "code": "123456"
+}

@@ -10,6 +10,11 @@ services:
       # Connect to the db service defined below
       - DATABASE_URL=mysql+aiomysql://root:phucdai011@db:3306/drowsiness_db
       - SECRET_KEY=YOUR_SECRET_KEY_HERE
+      - MAIL_USERNAME=cordelia46@ethereal.email
+      - MAIL_PASSWORD=EEBHFkrBseztNUr3Br
+      - MAIL_FROM=phucdai@gmail.com
+      - MAIL_PORT=587
+      - MAIL_SERVER=smtp.ethereal.email
     depends_on:
       db:
         condition: service_healthy

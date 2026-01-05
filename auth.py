@@ -41,14 +41,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        email: str = payload.get("sub")
+        if email is None:
             raise credentials_exception
-        token_data = schemas.TokenData(username=username)
+        token_data = schemas.TokenData(email=email)
     except JWTError:
         raise credentials_exception
     
-    result = await db.execute(select(models.User).where(models.User.username == token_data.username))
+    result = await db.execute(select(models.User).where(models.User.email == token_data.email))
     user = result.scalars().first()
     if user is None:
         raise credentials_exception

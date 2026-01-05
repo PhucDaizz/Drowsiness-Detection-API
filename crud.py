@@ -8,14 +8,14 @@ from datetime import datetime
 
 
 # --- User CRUD ---
-async def get_user_by_username(db: AsyncSession, username: str):
-    result = await db.execute(select(models.User).where(models.User.username == username))
+async def get_user_by_email(db: AsyncSession, email: str):
+    result = await db.execute(select(models.User).where(models.User.email == email))
     return result.scalars().first()
 
 async def create_user(db: AsyncSession, user: schemas.UserCreate):
     hashed_password = get_password_hash(user.password)
     db_user = models.User(
-        username=user.username,
+        email=user.email,
         password_hash=hashed_password,
         full_name=user.full_name,
         phone_number=user.phone_number,
@@ -177,3 +177,35 @@ async def get_trip_detection_count(db: AsyncSession, trip_id: int):
         .where(models.DetectionLog.trip_id == trip_id)
     )
     return result.scalar() or 0
+
+async def get_trips_by_range(db: AsyncSession, user_id: int, start_date: datetime, end_date: datetime):
+    # Fetch trips within range
+    from sqlalchemy import and_
+    result = await db.execute(
+        select(models.Trip)
+        .where(
+            and_(
+                models.Trip.user_id == user_id,
+                models.Trip.start_time >= start_date,
+                models.Trip.start_time <= end_date
+            )
+        )
+        .order_by(models.Trip.start_time.desc())
+    )
+    return result.scalars().all()
+
+async def get_active_driving_days(db: AsyncSession, user_id: int, month: int, year: int):
+    # Returns raw list of start_times
+    from sqlalchemy import extract, and_
+    result = await db.execute(
+        select(models.Trip.start_time)
+        .where(
+            and_(
+                models.Trip.user_id == user_id,
+                extract('month', models.Trip.start_time) == month,
+                extract('year', models.Trip.start_time) == year
+            )
+        )
+    )
+    return result.scalars().all()
+
