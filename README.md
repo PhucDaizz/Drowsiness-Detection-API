@@ -36,7 +36,7 @@ This is the easiest way to run the full stack (Backend + Database).
 1.  **Clone the repository**:
     ```bash
     git clone https://github.com/PhucDaizz/Drowsiness-Detection-API
-    cd drowsiness_detection_be
+    cd Drowsiness-Detection-API
     ```
 
 2.  **Build and Run**:
