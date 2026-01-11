@@ -31,6 +31,9 @@ app.include_router(trips.router)
 from routers import statistics
 app.include_router(statistics.router)
 
+from routers import ai_detection
+app.include_router(ai_detection.router)
+
 @app.get("/")
 async def root():
     return {"message": "Drowsiness Detection API is running"}

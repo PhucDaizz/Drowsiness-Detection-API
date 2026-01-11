@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket AI Test</title>
+</head>
+<body>
+    <h1>AI Drowsiness Detection WebSocket Test</h1>
+    <input type="file" id="imageInput" accept="image/*">
+    <button onclick="sendImage()">Send Image</button>
+    <hr>
+    <h3>Status: <span id="ws-status" style="color:red">Disconnected</span></h3>
+    <h3>AI Response:</h3>
+    <pre id="response">Waiting...</pre>
+    <div style="position: relative; display: inline-block;">
+        <img id="preview" width="600" />
+        <canvas id="overlay" style="position: absolute; left: 0; top: 0;"></canvas>
+    </div>
+
+    <script>
+        var ws = new WebSocket("ws://localhost:8000/ai/ws/detect");
+        var statusSpan = document.getElementById("ws-status");
+        var responsePre = document.getElementById("response");
+        var imgPreview = document.getElementById('preview');
+        var canvas = document.getElementById('overlay');
+        var ctx = canvas.getContext('2d');
+
+        ws.onopen = function() {
+            statusSpan.innerHTML = "Connected";
+            statusSpan.style.color = "green";
+        };
+
+        ws.onmessage = function(event) {
+            var data = JSON.parse(event.data);
+            responsePre.textContent = JSON.stringify(data, null, 2);
+            drawBoxes(data.detections);
+        };
+
+        ws.onclose = function() {
+            statusSpan.innerHTML = "Disconnected";
+            statusSpan.style.color = "red";
+        };
+
+        function sendImage() {
+            var input = document.getElementById("imageInput");
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var arrayBuffer = e.target.result;
+                    ws.send(arrayBuffer); // Send bytes
+                    
+                    // Show preview
+                    var blob = new Blob([arrayBuffer]);
+                    imgPreview.src = URL.createObjectURL(blob);
+                    
+                    imgPreview.onload = () => {
+                         canvas.width = imgPreview.width;
+                         canvas.height = imgPreview.height;
+                         ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    }
+                };
+                reader.readAsArrayBuffer(input.files[0]);
+            }
+        }
+
+        function drawBoxes(detections) {
+            if(!detections) return;
+            // Clear previous drawings but keep size
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Calculate scale ratio because image displayed might differ from original resolution 
+            // sent to server. But here we display original size so ratio is 1.
+            // If you change img width in HTML, logic needs adjustment.
+            
+            ctx.lineWidth = 3;
+            ctx.font = "18px Arial";
+            
+            detections.forEach(d => {
+                var [x1, y1, x2, y2] = d.box;
+                var color = d.label === 'drowsy' ? 'red' : (d.label === 'awake' ? 'green' : 'yellow');
+                
+                ctx.strokeStyle = color;
+                ctx.strokeRect(x1, y1, x2-x1, y2-y1);
+                
+                ctx.fillStyle = color;
+                ctx.fillText(d.label + " " + d.confidence, x1, y1 - 5);
+            });
+        }
+    </script>
+</body>
+</html>

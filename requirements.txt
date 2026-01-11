@@ -9,3 +9,6 @@ python-jose[cryptography]
 python-multipart
 
 fastapi-mail
+ultralytics
+opencv-python-headless
+websockets

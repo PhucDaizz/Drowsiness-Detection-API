@@ -7,6 +7,12 @@ WORKDIR /app
 # Copy the requirements file into the container
 COPY requirements.txt .
 
+# Install necessary system dependencies for GL (needed for opencv)
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install any needed packages specified in requirements.txt
 # Upgrade pip first to ensure no warnings
 RUN pip install --no-cache-dir --upgrade pip && \
