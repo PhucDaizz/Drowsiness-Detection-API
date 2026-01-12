@@ -6,6 +6,7 @@ import base64
 import json
 import os
 from typing import List
+from utils.image_preprocessor import ImagePreprocessor
 
 router = APIRouter(
     prefix="/ai",
@@ -20,6 +21,16 @@ if not os.path.exists(MODEL_PATH):
     model = None
 else:
     model = YOLO(MODEL_PATH)
+    
+# Initialize Preprocessor Globally (Stateless/Shared) or Per Request?
+# Python objects are generally thread-safe for read-only or local vars. 
+# Our preprocessor stores `current_mode` and caches, so it's stateful.
+# For async, better to instantiate inside function or use a dependency.
+# Simplest: Instantiate inside handler for isolation or use one global if careful.
+# Given it caches LUT, global is better for perf, but `current_mode` is per-frame state.
+# Let's instantiate per request to be safe with state `current_mode`.
+# Or better: Global instance but return mode from process() and don't rely on self.current_mode strictly.
+# Based on code provided: `self.current_mode` is modified. So one instance per connection/request is safest.
 
 @router.post("/detect")
 async def detect_image(file: UploadFile = File(...)):
@@ -38,8 +49,12 @@ async def detect_image(file: UploadFile = File(...)):
     if img is None:
         return {"error": "Invalid image"}
 
+    # Preprocess
+    preprocessor = ImagePreprocessor()
+    processed_img, mode = preprocessor.process(img)
+
     # Inference
-    results = model(img)
+    results = model(processed_img)
     
     # Process results
     detections = []
@@ -67,6 +82,10 @@ async def websocket_detect(websocket: WebSocket):
     Server responds: JSON (Detections)
     """
     await websocket.accept()
+    
+    # Instantiate Preprocessor for this connection
+    preprocessor = ImagePreprocessor()
+    
     try:
         while True:
             # Receive image bytes
@@ -84,8 +103,11 @@ async def websocket_detect(websocket: WebSocket):
                 await websocket.send_json({"error": "Invalid frame"})
                 continue
             
+            # Preprocess Frame
+            processed_img, mode = preprocessor.process(img)
+            
             # Inference (stream=True for speed)
-            results = model(img, verbose=False) # verbose=False to reduce logs
+            results = model(processed_img, verbose=False) # verbose=False to reduce logs
             
             detections = []
             status = "awake" # Default status
