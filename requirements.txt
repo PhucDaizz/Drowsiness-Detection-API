@@ -12,3 +12,4 @@ fastapi-mail
 ultralytics
 opencv-python-headless
 websockets
+python-telegram-bot

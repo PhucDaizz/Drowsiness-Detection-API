@@ -29,6 +29,8 @@ class EmergencyContact(Base):
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     name = Column(String(100), nullable=False)
     phone_number = Column(String(15), nullable=False)
+    telegram_chat_id = Column(String(50), nullable=True) # ID chat Telegram
+    connection_code = Column(String(20), unique=True, nullable=True) # Mã để liên kết
     is_active = Column(Boolean, default=True)
 
     owner = relationship("User", back_populates="contacts")

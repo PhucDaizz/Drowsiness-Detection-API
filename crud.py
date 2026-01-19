@@ -45,13 +45,38 @@ async def get_contacts(db: AsyncSession, user_id: int):
     result = await db.execute(select(models.EmergencyContact).where(models.EmergencyContact.user_id == user_id))
     return result.scalars().all()
 
+import secrets
+import string
+
+def generate_connection_code():
+    return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+
 async def create_contact(db: AsyncSession, contact: schemas.ContactCreate, user_id: int):
-    db_contact = models.EmergencyContact(**contact.model_dump(), user_id=user_id)
+    # Generate unique code
+    code = generate_connection_code()
+    # Ensure uniqueness loop could be added here but keeping simple for now
+    
+    db_contact = models.EmergencyContact(
+        **contact.model_dump(),
+        user_id=user_id,
+        connection_code=code
+    )
     db.add(db_contact)
     await db.commit()
     await db.refresh(db_contact)
-    await db.refresh(db_contact)
     return db_contact
+
+async def update_contact_telegram_id(db: AsyncSession, connection_code: str, chat_id: str):
+    # Find contact by code
+    result = await db.execute(select(models.EmergencyContact).where(models.EmergencyContact.connection_code == connection_code))
+    contact = result.scalars().first()
+    
+    if contact:
+        contact.telegram_chat_id = chat_id
+        await db.commit()
+        await db.refresh(contact)
+        return contact
+    return None
 
 async def update_contact(db: AsyncSession, contact_id: int, contact_update: schemas.ContactUpdate, user_id: int):
     # Ensure contact belongs to user

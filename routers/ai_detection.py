@@ -75,16 +75,20 @@ async def detect_image(file: UploadFile = File(...)):
     return {"detections": detections}
 
 @router.websocket("/ws/detect")
-async def websocket_detect(websocket: WebSocket):
+async def websocket_detect(websocket: WebSocket, user_id: int = None):
     """
     WebSocket endpoint for real-time detection.
-    Client sends: Bytes (Image)
-    Server responds: JSON (Detections)
+    Usage: ws://localhost:8000/ai/ws/detect?user_id=1
     """
     await websocket.accept()
     
-    # Instantiate Preprocessor for this connection
+    # Instantiate Preprocessor
     preprocessor = ImagePreprocessor()
+    
+    # Alert Throttling
+    import time
+    last_alert_time = 0
+    ALERT_COOLDOWN = 15 # Seconds
     
     try:
         while True:
@@ -95,7 +99,6 @@ async def websocket_detect(websocket: WebSocket):
                 await websocket.send_json({"error": "Model not loaded"})
                 continue
 
-            # Convert bytes to numpy array
             nparr = np.frombuffer(data, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
@@ -103,17 +106,12 @@ async def websocket_detect(websocket: WebSocket):
                 await websocket.send_json({"error": "Invalid frame"})
                 continue
             
-            # Preprocess Frame
             processed_img, mode = preprocessor.process(img)
-            
-            # Inference (stream=True for speed)
-            results = model(processed_img, verbose=False) # verbose=False to reduce logs
+            results = model(processed_img, verbose=False)
             
             detections = []
-            status = "awake" # Default status
+            status = "awake"
             
-            # Logic to determine driver status based on detection priority
-            # Priority: Drowsy > Head Drop > Yawn > Phone > Distracted > Awake
             has_drowsy = False
             has_head_drop = False
             
@@ -133,20 +131,13 @@ async def websocket_detect(websocket: WebSocket):
                         "box": [int(x) for x in coords]
                     })
             
-            # Priority: Drowsy > Head Drop > Yawn > Phone > Distracted > Awake
-            detected_label = "awake" # Default
-
-            # Sort detections by priority or just check flags.
-            # We want the specific label name as status.
-            
-            # Check for high priority
+            detected_label = "awake"
             for d in detections:
                  lbl = d['label']
                  if lbl in ["drowsy", "head drop"]:
                      detected_label = lbl
-                     break # Stop if found critical
+                     break
             
-            # If no critical, check secondary
             if detected_label == "awake":
                  for d in detections:
                       lbl = d['label']
@@ -155,18 +146,109 @@ async def websocket_detect(websocket: WebSocket):
                           break
             
             status = detected_label
-            
+
+            # --- Telegram Alert Logic ---
+            if user_id and status in ["drowsy", "head drop"]:
+                 current_time = time.time()
+                 if current_time - last_alert_time > ALERT_COOLDOWN:
+                     last_alert_time = current_time
+                     
+                     # Fire and Forget Alert Task
+                     # We need to fetch contacts inside this async loop.
+                     from database import SessionLocal
+                     from sqlalchemy import select
+                     import models
+                     from telegram_bot import send_telegram_alert
+                     
+                     async def send_alerts_async(uid, sts):
+                         async with SessionLocal() as db:
+                             # Fetch active contacts with telegram_id
+                             result = await db.execute(
+                                 select(models.EmergencyContact)
+                                 .where(
+                                     models.EmergencyContact.user_id == uid,
+                                     models.EmergencyContact.is_active == True,
+                                     models.EmergencyContact.telegram_chat_id != None
+                                 )
+                             )
+                             contacts = result.scalars().all()
+                             for contact in contacts:
+                                 msg = f"🚨 CẢNH BÁO: Tài xế {contact.owner.full_name if contact.owner else 'của bạn'} đang buồn ngủ/ngất ({sts})! Hãy gọi ngay: {contact.owner.phone_number if contact.owner else ''}!"
+                                 await send_telegram_alert(contact.telegram_chat_id, msg)
+                     
+                     # Create task to avoid blocking inference loop
+                     import asyncio
+                     asyncio.create_task(send_alerts_async(user_id, status))
+
             # Send result back
             await websocket.send_json({
                 "status": status,
                 "detections": detections
             })
             
-    except WebSocketDisconnect:
-        print("Client disconnected")
     except Exception as e:
         print(f"WebSocket Error: {e}")
         try:
             await websocket.close()
         except:
             pass
+
+from fastapi import Depends
+from database import get_db, SessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
+import auth, models, schemas
+
+@router.post("/alert")
+async def trigger_manual_alert(
+    request: schemas.AlertRequest,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Manually trigger an alert from Frontend (if FE does detection).
+    """
+    # Simply reuse the alert logic
+    # Fetch user contacts
+    from sqlalchemy import select
+    from telegram_bot import send_telegram_alert
+    
+    result = await db.execute(
+        select(models.EmergencyContact)
+        .where(
+            models.EmergencyContact.user_id == current_user.user_id,
+            models.EmergencyContact.is_active == True,
+            models.EmergencyContact.telegram_chat_id != None
+        )
+    )
+    contacts = result.scalars().all()
+    
+    sent_count = 0
+    
+    # Process Image if exists
+    photo_bytes = None
+    if request.image_base64:
+        try:
+            import base64
+            # Handle possible header like "data:image/jpeg;base64,"
+            b64 = request.image_base64
+            if "," in b64:
+                b64 = b64.split(",")[1]
+            photo_bytes = base64.b64decode(b64)
+        except Exception as e:
+            print(f"Error decoding image: {e}")
+
+    from telegram_bot import send_telegram_alert, send_telegram_photo
+
+    for contact in contacts:
+        msg = f"🚨 CẢNH BÁO KHẨN CẤP: Tài xế {current_user.full_name} đang gặp nguy hiểm ({request.event_type})! Vị trí: {request.gps_location or 'Không xác định'}. Hãy gọi ngay: {current_user.phone_number}!"
+        
+        if photo_bytes:
+            # Send photo with caption
+            await send_telegram_photo(contact.telegram_chat_id, photo_bytes, caption=msg)
+        else:
+            # Send text only
+            await send_telegram_alert(contact.telegram_chat_id, msg)
+            
+        sent_count += 1
+        
+    return {"message": f"Alert sent to {sent_count} contacts"}

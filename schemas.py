@@ -37,6 +37,8 @@ class ContactCreate(ContactBase):
 class ContactResponse(ContactBase):
     contact_id: int
     user_id: int
+    telegram_chat_id: Optional[str] = None
+    connection_code: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -125,3 +127,9 @@ class UserStatistics(BaseModel):
     total_duration_minutes: int
     detection_breakdown: dict  # {"drowsy": 5, "yawn": 3, ...}
     recent_trips: List[TripSummary]
+
+class AlertRequest(BaseModel):
+    event_type: str # drowsy, head drop
+    gps_location: Optional[str] = None
+    confidence: Optional[float] = None
+    image_base64: Optional[str] = None # Ảnh bằng chứng (gửi xong quên ngay, không lưu DB)

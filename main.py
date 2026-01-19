@@ -23,6 +23,11 @@ async def startup():
     await create_database_if_not_exists()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Start Telegram Bot
+    from telegram_bot import run_telegram_bot
+    import asyncio
+    asyncio.create_task(run_telegram_bot())
 
 app.include_router(users.router)
 app.include_router(contacts.router)

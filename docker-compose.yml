@@ -15,6 +15,7 @@ services:
       - MAIL_FROM=phucdai@gmail.com
       - MAIL_PORT=587
       - MAIL_SERVER=smtp.ethereal.email
+      - TELEGRAM_TOKEN=YOUR_TELEGRAM_TOKEN_HERE
     depends_on:
       db:
         condition: service_healthy
