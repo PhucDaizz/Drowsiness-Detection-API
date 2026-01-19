@@ -240,7 +240,38 @@ async def trigger_manual_alert(
     from telegram_bot import send_telegram_alert, send_telegram_photo
 
     for contact in contacts:
-        msg = f"🚨 CẢNH BÁO KHẨN CẤP: Tài xế {current_user.full_name} đang gặp nguy hiểm ({request.event_type})! Vị trí: {request.gps_location or 'Không xác định'}. Hãy gọi ngay: {current_user.phone_number}!"
+        # Format Google Maps Link
+        maps_link = "Không xác định"
+        if request.gps_location:
+            # Assuming gps_location is "LAT,LNG"
+            maps_link = f"https://www.google.com/maps?q={request.gps_location}"
+            
+        msg = (
+            f"🚨 <b>CẢNH BÁO KHẨN CẤP!</b>\n\n"
+            f"👤 Tài xế: <b>{current_user.full_name}</b>\n"
+            f"⚠️ Trạng thái: <b>{request.event_type}</b> (Nguy hiểm)\n"
+            f"📍 Vị trí: <a href='{maps_link}'>Xem trên bản đồ</a>\n"
+            f"📞 Gọi ngay: <b>{current_user.phone_number}</b>"
+        )
+        
+        # Note: HTML parse mode is default in python-telegram-bot send_message if specified, 
+        # but send_photo caption generally supports it too. 
+        # We need to make sure parse_mode='HTML' is passed in telegram_bot.py but we can't change it easily there without verify.
+        # Actually, let's keep it simple text if unsure, or try to pass formatting.
+        # Check telegram_bot.py: it uses `bot.send_message(..., text=message)` and `bot.send_photo(..., caption=caption)`.
+        # Default parse_mode is None. We should update telegram_bot.py to use HTML or Markdown.
+        # Wait, I cannot update telegram_bot.py in this step effectively if I'm editing ai_detection.py. 
+        # I will stick to plain text with clear formatting first, or assume I can update telegram_bot next.
+        # User wants "link to google map", so plain text URL is fine, but HTML <a href> is better.
+        # Let's write plain text with URL first to be safe:
+        
+        msg = (
+            f"🚨 CẢNH BÁO KHẨN CẤP!\n\n"
+            f"👤 Tài xế: {current_user.full_name}\n"
+            f"⚠️ Trạng thái: {request.event_type}\n"
+            f"📍 Vị trí: {maps_link}\n"
+            f"📞 Gọi ngay: {current_user.phone_number}"
+        )
         
         if photo_bytes:
             # Send photo with caption
