@@ -78,6 +78,18 @@ async def update_contact_telegram_id(db: AsyncSession, connection_code: str, cha
         return contact
     return None
 
+async def remove_contact_telegram_id(db: AsyncSession, chat_id: str):
+    # Find contact by chat_id
+    result = await db.execute(select(models.EmergencyContact).where(models.EmergencyContact.telegram_chat_id == chat_id))
+    contact = result.scalars().first()
+    
+    if contact:
+        code = contact.connection_code
+        contact.telegram_chat_id = None
+        await db.commit()
+        return contact, code
+    return None, None
+
 async def update_contact(db: AsyncSession, contact_id: int, contact_update: schemas.ContactUpdate, user_id: int):
     # Ensure contact belongs to user
     result = await db.execute(
